@@ -295,6 +295,20 @@ router.get("/list", authMiddleware, async (req, res) => {
   }
 });
 
+// Reset a chat: wipe its messages and let the intro regenerate on next open.
+router.post("/:chatId/reset", authMiddleware, async (req, res) => {
+  try {
+    const chat = await Chat.findOne({ _id: req.params.chatId, userId: req.userId });
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+    await Message.deleteMany({ chatId: chat._id });
+    chat.initialMessageGenerated = false;
+    await chat.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/:chatId", authMiddleware, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);

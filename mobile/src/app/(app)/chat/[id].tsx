@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Alert,
   Animated,
   Easing,
   FlatList,
@@ -46,6 +47,37 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Message>>(null);
+  const chatIdRef = useRef<string | null>(null);
+  chatIdRef.current = chatId;
+
+  // Wipe the conversation and regenerate the intro (e.g. after editing personality).
+  function resetIntro() {
+    const cid = chatIdRef.current;
+    if (!cid) return;
+    Alert.alert("Reset chat?", "Clears all messages and regenerates the opening scene.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Reset",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setMessages([]);
+            setLoading(true);
+            await api(`/api/chat/${cid}/reset`, { method: "POST" });
+            const data = await api<ChatLoad>(`/api/chat/${cid}`);
+            setMessages(data.messages ?? []);
+            setRel(data.relationship);
+            setLevel(data.level);
+            setEmoji(data.emoji);
+          } catch (e: any) {
+            Alert.alert("Reset failed", e.message);
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  }
 
   // Open (or resume) the chat for this character, then load its history.
   useEffect(() => {
@@ -95,9 +127,14 @@ export default function Chat() {
         </View>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={() => router.push(`/(app)/create?id=${characterId}`)} hitSlop={10}>
-          <Ionicons name="create-outline" size={22} color={c.ink} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={resetIntro} hitSlop={10}>
+            <Ionicons name="refresh" size={22} color={c.ink} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push(`/(app)/create?id=${characterId}`)} hitSlop={10}>
+            <Ionicons name="create-outline" size={22} color={c.ink} />
+          </TouchableOpacity>
+        </View>
       ),
     });
   }, [charName, charImage, characterId, navigation, router]);
@@ -287,6 +324,7 @@ function RichText({ text, mine }: { text: string; mine: boolean }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: sp.lg },
   headerTitle: { flexDirection: "row", alignItems: "center", gap: sp.sm },
   headerAvatar: { width: 30, height: 30, borderRadius: radius.pill },
   headerAvatarFallback: { alignItems: "center", justifyContent: "center" },
