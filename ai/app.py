@@ -1,6 +1,7 @@
 import re
+import json
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response, stream_with_context
 
 app = Flask(__name__)
 
@@ -58,6 +59,54 @@ def generate():
     raw_reply = call_llama(prompt)
     reply = clean_reply(raw_reply, character_name)
     return jsonify({"reply": reply})
+
+def _second_speaker_cut(text):
+    # Index where a 2nd speaker's dialogue starts (the 3rd quote mark), else None.
+    q = [i for i, c in enumerate(text) if c in '"“”']
+    return q[2] if len(q) >= 3 else None
+
+@app.route("/generate-stream", methods=["POST"])
+def generate_stream():
+    data = request.json
+    prompt = data.get("prompt")
+
+    @stream_with_context
+    def gen():
+        acc = ""
+        sent = 0
+        payload = {
+            "prompt": prompt,
+            "n_predict": 180,
+            "temperature": 0.95,
+            "top_p": 0.95,
+            "repeat_penalty": 1.15,
+            "stop": ["<|im_end|>", "User:", "You:", "\nUser:", "\nYou:", "Assistant:"],
+            "stream": True,
+        }
+        try:
+            with requests.post(LLAMA_SERVER_URL, json=payload, stream=True) as r:
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    line = line.decode("utf-8")
+                    if not line.startswith("data: "):
+                        continue
+                    chunk = json.loads(line[6:]).get("content", "")
+                    chunk = chunk.replace("<|im_end|>", "").replace("<|im_start|>", "")
+                    if not chunk:
+                        continue
+                    acc += chunk
+                    cut = _second_speaker_cut(acc)
+                    if cut is not None:  # stop before the model speaks for the user
+                        if cut > sent:
+                            yield acc[sent:cut]
+                        return
+                    yield acc[sent:]
+                    sent = len(acc)
+        except Exception as e:
+            print(f"stream error: {e}")
+
+    return Response(gen(), mimetype="text/plain")
 
 @app.route("/analyze", methods=["POST"])
 def analyze():

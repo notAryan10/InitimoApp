@@ -5,6 +5,15 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import { Field, SubmitButton, styles as fs } from "@/components/form";
 import { api } from "@/lib/api";
 
+// Preset starting relationship → seed stats (score = sum, see relationshipLevel.js).
+const CLOSENESS = {
+  Stranger: { startAffection: 0, startTrust: 0, startIntimacy: 0 },
+  Friend: { startAffection: 15, startTrust: 12, startIntimacy: 3 },
+  "Close Friend": { startAffection: 22, startTrust: 18, startIntimacy: 8 },
+  Crush: { startAffection: 28, startTrust: 22, startIntimacy: 15 },
+  Lover: { startAffection: 35, startTrust: 28, startIntimacy: 22 },
+} as const;
+
 export default function Create() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -12,6 +21,7 @@ export default function Create() {
   const [description, setDescription] = useState("");
   const [gender, setGender] = useState<"female" | "male">("female");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
+  const [closeness, setCloseness] = useState<keyof typeof CLOSENESS>("Stranger");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +32,7 @@ export default function Create() {
     setError(null);
     try {
       await api("/api/character/create", {
-        body: { name: name.trim(), personality, description, gender, visibility },
+        body: { name: name.trim(), personality, description, gender, visibility, ...CLOSENESS[closeness] },
       });
       router.back();
     } catch (e: any) {
@@ -48,6 +58,12 @@ export default function Create() {
         style={[fs.input, styles.multiline]}
         value={description}
         onChangeText={setDescription}
+      />
+      <Toggle
+        label="Starting closeness"
+        options={Object.keys(CLOSENESS) as (keyof typeof CLOSENESS)[]}
+        value={closeness}
+        onChange={setCloseness}
       />
       <Toggle label="Gender" options={["female", "male"]} value={gender} onChange={setGender} />
       <Toggle

@@ -32,3 +32,36 @@ export async function api<T = any>(
   if (!res.ok) throw new Error((data as any)?.error || (data as any)?.message || `HTTP ${res.status}`);
   return data as T;
 }
+
+// Streaming POST. Server sends a metadata JSON line, then raw text as it
+// generates. RN's fetch can't stream, so we use XHR's incremental responseText.
+export async function streamPost(
+  path: string,
+  body: unknown,
+  cb: { onMeta?: (meta: any) => void; onChunk: (textSoFar: string) => void }
+): Promise<void> {
+  const token = await tokenStore.get();
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE}${path}`);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    let metaDone = false;
+    xhr.onprogress = () => {
+      const raw = xhr.responseText;
+      const nl = raw.indexOf("\n");
+      if (nl === -1) return;
+      if (!metaDone) {
+        try {
+          cb.onMeta?.(JSON.parse(raw.slice(0, nl)));
+        } catch {}
+        metaDone = true;
+      }
+      cb.onChunk(raw.slice(nl + 1));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`));
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(JSON.stringify(body));
+  });
+}

@@ -31,7 +31,8 @@ function assignVoice(personality, gender) {
 
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { name, personality, emotion, description, visibility, voice, gender } = req.body;
+    const { name, personality, emotion, description, visibility, voice, gender,
+            startAffection, startTrust, startIntimacy } = req.body;
 
     const speakerId = (voice && voice.speakerId) || assignVoice(personality, gender);
 
@@ -41,6 +42,9 @@ router.post("/create", authMiddleware, async (req, res) => {
       personality,
       emotion,
       description,
+      startAffection: startAffection || 0,
+      startTrust: startTrust || 0,
+      startIntimacy: startIntimacy || 0,
       visibility,
       voice: {
         ...voice,

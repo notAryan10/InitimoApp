@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-import { api } from "@/lib/api";
+import { api, streamPost } from "@/lib/api";
 import type { Message, Relationship } from "@/lib/types";
 
 type ChatLoad = {
@@ -21,15 +21,6 @@ type ChatLoad = {
   level: string;
   emoji: string;
 };
-type SendRes = {
-  reply: string;
-  relationship: Relationship;
-  level: string;
-  emoji: string;
-  emotion: string;
-  event?: string | null;
-};
-
 export default function Chat() {
   const { id: characterId } = useLocalSearchParams<{ id: string }>();
   const [chatId, setChatId] = useState<string | null>(null);
@@ -72,16 +63,32 @@ export default function Chat() {
     const message = input.trim();
     if (!message || sending || !chatId) return;
     setInput("");
-    setMessages((m) => [...m, { sender: "user", text: message }]);
+    // Add the user message + an empty character bubble we fill as tokens arrive.
+    setMessages((m) => [...m, { sender: "user", text: message }, { sender: "character", text: "" }]);
     setSending(true);
+
+    const setLast = (text: string) =>
+      setMessages((m) => {
+        const copy = [...m];
+        copy[copy.length - 1] = { sender: "character", text };
+        return copy;
+      });
+
     try {
-      const res = await api<SendRes>("/api/chat/message", { body: { chatId, message } });
-      setMessages((m) => [...m, { sender: "character", text: res.reply }]);
-      setRel(res.relationship);
-      setLevel(res.level);
-      setEmoji(res.emoji);
+      await streamPost(
+        "/api/chat/message",
+        { chatId, message },
+        {
+          onMeta: (meta) => {
+            setRel(meta.relationship);
+            setLevel(meta.level);
+            setEmoji(meta.emoji);
+          },
+          onChunk: (textSoFar) => setLast(textSoFar),
+        }
+      );
     } catch (e: any) {
-      setMessages((m) => [...m, { sender: "character", text: `⚠️ ${e.message}` }]);
+      setLast(`⚠️ ${e.message}`);
     } finally {
       setSending(false);
     }
@@ -135,20 +142,21 @@ export default function Chat() {
   );
 }
 
-// Renders *narration* as italic, leaving "dialogue" as normal text.
+// Dialogue lives inside "quotes" (normal); everything else is narration
+// (italic). Doesn't rely on the model adding *asterisks*, which it skips.
 function RichText({ text, mine }: { text: string; mine: boolean }) {
-  const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
+  const parts = text.split(/("[^"]*"|“[^”]*”)/g).filter(Boolean);
   return (
     <Text style={mine ? styles.userText : undefined}>
-      {parts.map((p, i) =>
-        p.startsWith("*") && p.endsWith("*") ? (
+      {parts.map((p, i) => {
+        const isDialogue = /^["“]/.test(p);
+        if (isDialogue) return <Text key={i}>{p}</Text>;
+        return (
           <Text key={i} style={[styles.narration, mine && styles.userText]}>
-            {p.slice(1, -1)}
+            {p.replace(/\*/g, "")}
           </Text>
-        ) : (
-          <Text key={i}>{p}</Text>
-        )
-      )}
+        );
+      })}
     </Text>
   );
 }

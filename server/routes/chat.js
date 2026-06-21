@@ -66,6 +66,20 @@ router.post("/create", authMiddleware, async (req, res) => {
       await chat.save();
     }
 
+    // Seed the relationship from the character's starting stats so the meter
+    // reflects the backstory (e.g. childhood friends) from the first open.
+    const existing = await Relationship.findOne({ userId, characterId });
+    if (!existing) {
+      const character = await Character.findById(characterId);
+      await Relationship.create({
+        userId,
+        characterId,
+        affection: character?.startAffection || 0,
+        trust: character?.startTrust || 0,
+        intimacy: character?.startIntimacy || 0,
+      });
+    }
+
     res.json({ chatId: chat._id });
 
   } catch (err) {
@@ -89,6 +103,9 @@ router.post("/message", authMiddleware, async (req, res) => {
     relationship = new Relationship({
       userId: req.userId,
       characterId: character._id,
+      affection: character.startAffection || 0,
+      trust: character.startTrust || 0,
+      intimacy: character.startIntimacy || 0,
     });
     await relationship.save();
   }
@@ -161,7 +178,8 @@ router.post("/message", authMiddleware, async (req, res) => {
     type: "chat"
   });
 
-  await extractAndStoreMemory(req.userId, character._id, message);
+  // ponytail: memory extraction is for FUTURE turns — don't block this reply
+  // on it. Fire it after responding (see end of handler).
 
   const memories = await Memory.find({
     userId: req.userId,
@@ -195,28 +213,52 @@ router.post("/message", authMiddleware, async (req, res) => {
   console.log("------ PROMPT END ------");
   console.log("Calling AI...");
 
-  const aiReply = await getAIResponse(prompt, character.name);
+  // Stream: first line is metadata JSON, then raw reply text as it generates.
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.write(
+    JSON.stringify({
+      relationship: {
+        affection: relationship.affection,
+        trust: relationship.trust,
+        intimacy: relationship.intimacy,
+        anger: relationship.anger,
+      },
+      level: currentLevelInfo.level,
+      emoji: currentLevelInfo.emoji,
+      emotion: currentEmotion,
+      event: specialEvent || levelChangeEvent,
+    }) + "\n"
+  );
 
-  await Message.create({
-    chatId,
-    sender: "character",
-    text: aiReply,
-    type: "chat"
-  });
-
-  res.json({
-    reply: aiReply,
-    relationship: {
-      affection: relationship.affection,
-      trust: relationship.trust,
-      intimacy: relationship.intimacy,
-      anger: relationship.anger
-    },
-    level: currentLevelInfo.level,
-    emoji: currentLevelInfo.emoji,
-    emotion: currentEmotion,
-    event: specialEvent || levelChangeEvent
-  });
+  let full = "";
+  try {
+    const aiResp = await axios.post(
+      "http://127.0.0.1:8000/generate-stream",
+      { prompt, character_name: character.name },
+      { responseType: "stream" }
+    );
+    aiResp.data.on("data", (buf) => {
+      const s = buf.toString();
+      full += s;
+      res.write(s);
+    });
+    aiResp.data.on("end", async () => {
+      res.end();
+      if (full.trim()) {
+        await Message.create({ chatId, sender: "character", text: full.trim(), type: "chat" });
+      }
+      extractAndStoreMemory(req.userId, character._id, message).catch((e) =>
+        console.error("memory extract failed:", e.message)
+      );
+    });
+    aiResp.data.on("error", (e) => {
+      console.error("AI stream error:", e.message);
+      res.end();
+    });
+  } catch (err) {
+    console.error("Error starting AI stream:", err.message);
+    res.end();
+  }
 });
 
 router.get("/:chatId", authMiddleware, async (req, res) => {
