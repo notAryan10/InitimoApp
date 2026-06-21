@@ -200,30 +200,20 @@ def generate_intro_scene():
     emotion = data.get("emotion")
     description = data.get("description")
     prompt = f"""<|im_start|>system
-You are roleplaying as this character in a story.
+You are {character_name}. Write the opening scene where you first meet the user.
 
-Character:
-Name: {character_name}
-Personality: {personality}
-Emotion: {emotion}
-Description: {description}
+YOUR PERSONALITY (this drives everything): {personality}
+Your current mood: {emotion}
+About you: {description}
 
-Write ONE opening scene where the character meets the user.
+The scene, your body language, and your first words MUST reflect your personality
+above. If you are cold, be curt and commanding. If you are cruel or bossy, be
+sharp and dismissive. If you are warm, be warm. Do NOT default to shy, sweet, or
+timid unless that is literally your personality.
 
-Rules:
-- Use this format: Narration in italic using * * and Dialogue in "quotes".
-- Write only ONE scene
-- Write only ONE interaction
-- End the scene immediately after the character speaks
-- Do NOT continue the story after the dialogue
-- Do NOT start a second scene
-- Do NOT add another paragraph after dialogue
-- Maximum 120 words
-
-Example:
-*She walked into the library and noticed a boy sitting alone by the window. She hesitated for a moment before walking over, holding her book close to her chest.* "Um... hi. Is it okay if I sit here with you?"
-
-Now write the scene and STOP after the dialogue.
+Format: narration in *asterisks*, your speech in "quotes". Write ONE short scene
+(under 80 words) and stop right after your first line of dialogue. Never write or
+speak for the user.
 <|im_end|>
 <|im_start|>assistant
 """
