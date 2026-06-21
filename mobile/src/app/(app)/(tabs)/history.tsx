@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
+import Reanimated, { FadeInDown } from "react-native-reanimated";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +14,8 @@ import {
 
 import { api } from "@/lib/api";
 import { avatarTint, c, radius, sp } from "@/lib/theme";
+
+const AnimatedRow = Reanimated.createAnimatedComponent(TouchableOpacity);
 
 type ChatItem = {
   chatId: string;
@@ -71,8 +74,9 @@ export default function History() {
             <Text style={styles.emptyBody}>Start chatting from the Characters tab.</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
+        renderItem={({ item, index }) => (
+          <AnimatedRow
+            entering={FadeInDown.delay(Math.min(index, 10) * 45).duration(260)}
             style={styles.row}
             activeOpacity={0.7}
             onPress={() => router.push(`/(app)/chat/${item.characterId}`)}
@@ -98,7 +102,7 @@ export default function History() {
                 {item.emoji} {item.level}
               </Text>
             </View>
-          </TouchableOpacity>
+          </AnimatedRow>
         )}
       />
     </View>

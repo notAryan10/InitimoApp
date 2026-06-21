@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import Reanimated, { FadeInLeft, FadeInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, streamPost } from "@/lib/api";
@@ -171,7 +172,8 @@ export default function Chat() {
           const mine = item.sender === "user";
           const waiting = !mine && item.text === "";
           return (
-            <View
+            <Reanimated.View
+              entering={(mine ? FadeInRight : FadeInLeft).duration(260)}
               style={[
                 styles.bubble,
                 mine ? styles.user : styles.assistant,
@@ -179,7 +181,7 @@ export default function Chat() {
               ]}
             >
               {waiting ? <TypingDots /> : <RichText text={item.text} mine={mine} />}
-            </View>
+            </Reanimated.View>
           );
         }}
       />

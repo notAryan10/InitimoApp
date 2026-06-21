@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useFocusEffect, useRouter } from "expo-router";
+import Reanimated, { FadeInDown } from "react-native-reanimated";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +18,8 @@ import {
 import { api } from "@/lib/api";
 import { avatarTint, c, radius, sp } from "@/lib/theme";
 import type { Character } from "@/lib/types";
+
+const AnimatedCard = Reanimated.createAnimatedComponent(TouchableOpacity);
 
 export default function Characters() {
   const router = useRouter();
@@ -76,10 +79,11 @@ export default function Characters() {
             </Text>
           </View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const tint = avatarTint(item._id);
           return (
-            <TouchableOpacity
+            <AnimatedCard
+              entering={FadeInDown.delay(Math.min(index, 8) * 45).duration(280)}
               style={styles.card}
               activeOpacity={0.85}
               onPress={() => router.push(`/(app)/chat/${item._id}`)}
@@ -104,7 +108,7 @@ export default function Characters() {
               <Text style={styles.cardName} numberOfLines={1}>
                 {item.name}
               </Text>
-            </TouchableOpacity>
+            </AnimatedCard>
           );
         }}
       />
