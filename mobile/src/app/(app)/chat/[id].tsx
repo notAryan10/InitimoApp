@@ -145,18 +145,36 @@ export default function Chat() {
 // Dialogue lives inside "quotes" (normal); everything else is narration
 // (italic). Doesn't rely on the model adding *asterisks*, which it skips.
 function RichText({ text, mine }: { text: string; mine: boolean }) {
+  if (mine) {
+    // You type *action* for narration; plain text stays normal.
+    const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
+    return (
+      <Text style={styles.userText}>
+        {parts.map((p, i) =>
+          p.startsWith("*") && p.endsWith("*") ? (
+            <Text key={i} style={[styles.userText, styles.italic]}>
+              {p.slice(1, -1)}
+            </Text>
+          ) : (
+            <Text key={i}>{p}</Text>
+          )
+        )}
+      </Text>
+    );
+  }
+  // AI: dialogue is in "quotes", everything else is narration (italic).
   const parts = text.split(/("[^"]*"|“[^”]*”)/g).filter(Boolean);
   return (
-    <Text style={mine ? styles.userText : undefined}>
-      {parts.map((p, i) => {
-        const isDialogue = /^["“]/.test(p);
-        if (isDialogue) return <Text key={i}>{p}</Text>;
-        return (
-          <Text key={i} style={[styles.narration, mine && styles.userText]}>
+    <Text>
+      {parts.map((p, i) =>
+        /^["“]/.test(p) ? (
+          <Text key={i}>{p}</Text>
+        ) : (
+          <Text key={i} style={styles.narration}>
             {p.replace(/\*/g, "")}
           </Text>
-        );
-      })}
+        )
+      )}
     </Text>
   );
 }
@@ -176,6 +194,7 @@ const styles = StyleSheet.create({
   user: { alignSelf: "flex-end", backgroundColor: "#7c3aed" },
   userText: { color: "#fff" },
   narration: { fontStyle: "italic", color: "#666" },
+  italic: { fontStyle: "italic" },
   assistant: { alignSelf: "flex-start", backgroundColor: "#eee" },
   typing: { padding: 8, color: "#888", fontStyle: "italic" },
   inputRow: {
