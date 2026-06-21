@@ -12,7 +12,13 @@ import {
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { c, radius, sp } from "@/lib/theme";
 import type { Character } from "@/lib/types";
+
+// Deterministic warm avatar tint per character, so each one reads as distinct.
+const AVATAR_TINTS = ["#E2647F", "#C77DA8", "#8E7BC9", "#5E86C9", "#D98859", "#5FA98C"];
+const tintFor = (id: string) =>
+  AVATAR_TINTS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % AVATAR_TINTS.length];
 
 export default function Dashboard() {
   const { logout } = useAuth();
@@ -32,65 +38,105 @@ export default function Dashboard() {
   // Reload when returning from create screen.
   useFocusEffect(useCallback(() => load(), [load]));
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={c.accent} />
+      </View>
+    );
 
   return (
     <View style={styles.container}>
       {error && <Text style={styles.error}>{error}</Text>}
       <FlatList
         data={chars}
-        keyExtractor={(c) => c._id}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={load} />}
-        ListEmptyComponent={<Text style={styles.empty}>No characters yet. Create one.</Text>}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={false} onRefresh={load} tintColor={c.muted} />
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>No one here yet</Text>
+            <Text style={styles.emptyBody}>
+              Create your first character and start a conversation.
+            </Text>
+          </View>
+        }
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
+            activeOpacity={0.7}
             onPress={() => router.push(`/(app)/chat/${item._id}`)}
           >
-            <Text style={styles.name}>{item.name}</Text>
-            {!!item.description && (
-              <Text style={styles.tagline} numberOfLines={2}>
-                {item.description}
-              </Text>
-            )}
+            <View style={[styles.avatar, { backgroundColor: tintFor(item._id) }]}>
+              <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View style={styles.cardBody}>
+              <Text style={styles.name}>{item.name}</Text>
+              {!!item.description && (
+                <Text style={styles.tagline} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              )}
+            </View>
+            <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         )}
       />
       <Link href="/(app)/create" asChild>
-        <TouchableOpacity style={styles.fab}>
+        <TouchableOpacity style={styles.fab} activeOpacity={0.85}>
           <Text style={styles.fabText}>＋</Text>
         </TouchableOpacity>
       </Link>
-      <TouchableOpacity onPress={logout} style={styles.logout}>
-        <Text style={{ color: "#7c3aed" }}>Log out</Text>
+      <TouchableOpacity onPress={logout} style={styles.logout} hitSlop={8}>
+        <Text style={styles.logoutText}>Log out</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  error: { color: "#d11", marginBottom: 8 },
-  empty: { textAlign: "center", marginTop: 48, color: "#888" },
+  container: { flex: 1, backgroundColor: c.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
+  list: { padding: sp.lg, paddingBottom: 140, gap: sp.md },
+  error: { color: c.danger, padding: sp.lg, paddingBottom: 0 },
+  empty: { alignItems: "center", marginTop: 120, paddingHorizontal: sp.xl },
+  emptyTitle: { color: c.ink, fontSize: 20, fontWeight: "700", marginBottom: sp.sm },
+  emptyBody: { color: c.muted, fontSize: 15, textAlign: "center", lineHeight: 22 },
   card: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#f3f0fb",
-    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: sp.lg,
+    padding: sp.lg,
+    borderRadius: radius.lg,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
   },
-  name: { fontSize: 18, fontWeight: "600" },
-  tagline: { color: "#666", marginTop: 4 },
+  avatar: { width: 52, height: 52, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  avatarText: { color: c.onAccent, fontSize: 22, fontWeight: "800" },
+  cardBody: { flex: 1 },
+  name: { fontSize: 18, fontWeight: "700", color: c.ink },
+  tagline: { color: c.muted, marginTop: 3, fontSize: 14, lineHeight: 19 },
+  chevron: { color: c.faint, fontSize: 26, fontWeight: "300" },
   fab: {
     position: "absolute",
-    right: 20,
-    bottom: 70,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#7c3aed",
+    right: sp.xl,
+    bottom: 96,
+    width: 60,
+    height: 60,
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: c.accent,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
-  fabText: { color: "#fff", fontSize: 28, lineHeight: 30 },
-  logout: { alignItems: "center", padding: 12 },
+  fabText: { color: c.onAccent, fontSize: 30, lineHeight: 32, fontWeight: "400" },
+  logout: { position: "absolute", bottom: sp.xl, alignSelf: "center", padding: sp.md },
+  logoutText: { color: c.faint, fontSize: 14, fontWeight: "600" },
 });

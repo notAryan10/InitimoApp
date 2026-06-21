@@ -1,7 +1,10 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +16,7 @@ import {
 } from "react-native";
 
 import { api, streamPost } from "@/lib/api";
+import { c, radius, sp } from "@/lib/theme";
 import type { Message, Relationship } from "@/lib/types";
 
 type ChatLoad = {
@@ -21,6 +25,7 @@ type ChatLoad = {
   level: string;
   emoji: string;
 };
+
 export default function Chat() {
   const { id: characterId } = useLocalSearchParams<{ id: string }>();
   const [chatId, setChatId] = useState<string | null>(null);
@@ -94,59 +99,121 @@ export default function Chat() {
     }
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={c.accent} />
+      </View>
+    );
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={90}
     >
       {rel && (
         <View style={styles.relBar}>
-          <Text style={styles.stat}>❤️ {Math.round(rel.affection)}</Text>
-          <Text style={styles.stat}>🤝 {Math.round(rel.trust)}</Text>
-          <Text style={styles.stat}>🔥 {Math.round(rel.intimacy)}</Text>
-          <Text style={styles.level}>
-            {emoji} {level}
-          </Text>
+          <Stat icon="❤" value={rel.affection} />
+          <Stat icon="🤝" value={rel.trust} />
+          <Stat icon="🔥" value={rel.intimacy} />
+          <View style={styles.levelPill}>
+            <Text style={styles.levelText}>
+              {emoji} {level}
+            </Text>
+          </View>
         </View>
       )}
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(_, i) => String(i)}
-        contentContainerStyle={{ padding: 12, gap: 8 }}
+        contentContainerStyle={styles.listContent}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        renderItem={({ item }) => (
-          <View style={[styles.bubble, item.sender === "user" ? styles.user : styles.assistant]}>
-            <RichText text={item.text} mine={item.sender === "user"} />
-          </View>
-        )}
-        ListFooterComponent={sending ? <Text style={styles.typing}>typing…</Text> : null}
+        renderItem={({ item }) => {
+          const mine = item.sender === "user";
+          const waiting = !mine && item.text === "";
+          return (
+            <View
+              style={[
+                styles.bubble,
+                mine ? styles.user : styles.assistant,
+                waiting && styles.bubbleWaiting,
+              ]}
+            >
+              {waiting ? <TypingDots /> : <RichText text={item.text} mine={mine} />}
+            </View>
+          );
+        }}
       />
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
           placeholder="Message…"
+          placeholderTextColor={c.faint}
           value={input}
           onChangeText={setInput}
           onSubmitEditing={send}
           returnKeyType="send"
+          multiline
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={send} disabled={sending}>
-          <Text style={styles.sendText}>➤</Text>
+        <TouchableOpacity
+          style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnOff]}
+          onPress={send}
+          disabled={sending}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.sendText}>↑</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-// Dialogue lives inside "quotes" (normal); everything else is narration
-// (italic). Doesn't rely on the model adding *asterisks*, which it skips.
+function Stat({ icon, value }: { icon: string; value: number }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statIcon}>{icon}</Text>
+      <Text style={styles.statValue}>{Math.round(value)}</Text>
+    </View>
+  );
+}
+
+// Three dots that pulse while the reply is being generated. Falls back to
+// static dots when the OS has reduce-motion enabled.
+function TypingDots() {
+  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.35))).current;
+  useEffect(() => {
+    let loops: Animated.CompositeAnimation[] = [];
+    AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (reduced) return;
+      loops = dots.map((d, i) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(i * 160),
+            Animated.timing(d, { toValue: 1, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(d, { toValue: 0.35, duration: 320, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          ])
+        )
+      );
+      loops.forEach((l) => l.start());
+    });
+    return () => loops.forEach((l) => l.stop());
+  }, [dots]);
+
+  return (
+    <View style={styles.dots}>
+      {dots.map((d, i) => (
+        <Animated.View key={i} style={[styles.dot, { opacity: d, transform: [{ scale: d }] }]} />
+      ))}
+    </View>
+  );
+}
+
+// Your messages: *action* renders italic. AI messages: "dialogue" is normal,
+// everything else is narration (italic) — independent of the model's asterisks.
 function RichText({ text, mine }: { text: string; mine: boolean }) {
   if (mine) {
-    // You type *action* for narration; plain text stays normal.
     const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
     return (
       <Text style={styles.userText}>
@@ -162,10 +229,9 @@ function RichText({ text, mine }: { text: string; mine: boolean }) {
       </Text>
     );
   }
-  // AI: dialogue is in "quotes", everything else is narration (italic).
   const parts = text.split(/("[^"]*"|“[^”]*”)/g).filter(Boolean);
   return (
-    <Text>
+    <Text style={styles.aiText}>
       {parts.map((p, i) =>
         /^["“]/.test(p) ? (
           <Text key={i}>{p}</Text>
@@ -180,45 +246,72 @@ function RichText({ text, mine }: { text: string; mine: boolean }) {
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: c.bg },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
   relBar: {
     flexDirection: "row",
-    gap: 14,
-    padding: 8,
+    gap: sp.md,
+    paddingHorizontal: sp.lg,
+    paddingVertical: sp.md,
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
+    borderBottomWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bg,
   },
-  stat: { fontSize: 13 },
-  level: { marginLeft: "auto", fontStyle: "italic", color: "#7c3aed" },
-  bubble: { maxWidth: "80%", padding: 12, borderRadius: 14 },
-  user: { alignSelf: "flex-end", backgroundColor: "#7c3aed" },
-  userText: { color: "#fff" },
-  narration: { fontStyle: "italic", color: "#666" },
+  stat: { flexDirection: "row", alignItems: "center", gap: sp.xs },
+  statIcon: { fontSize: 13 },
+  statValue: { fontSize: 13, color: c.muted, fontWeight: "600", fontVariant: ["tabular-nums"] },
+  levelPill: {
+    marginLeft: "auto",
+    backgroundColor: c.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: sp.md,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  levelText: { color: c.accent, fontSize: 13, fontWeight: "700" },
+  listContent: { padding: sp.lg, gap: sp.sm },
+  bubble: { maxWidth: "82%", paddingHorizontal: sp.lg, paddingVertical: sp.md, borderRadius: radius.lg },
+  bubbleWaiting: { paddingVertical: sp.lg },
+  user: { alignSelf: "flex-end", backgroundColor: c.accent, borderBottomRightRadius: radius.sm },
+  assistant: { alignSelf: "flex-start", backgroundColor: c.surface, borderBottomLeftRadius: radius.sm },
+  userText: { color: c.onAccent, fontSize: 16, lineHeight: 23 },
+  aiText: { color: c.ink, fontSize: 16, lineHeight: 23 },
+  narration: { fontStyle: "italic", color: c.muted },
   italic: { fontStyle: "italic" },
-  assistant: { alignSelf: "flex-start", backgroundColor: "#eee" },
-  typing: { padding: 8, color: "#888", fontStyle: "italic" },
+  dots: { flexDirection: "row", gap: 6, alignItems: "center" },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.muted },
   inputRow: {
     flexDirection: "row",
-    padding: 8,
-    gap: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: "#ddd",
+    alignItems: "flex-end",
+    padding: sp.md,
+    gap: sp.sm,
+    borderTopWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bg,
   },
   input: {
     flex: 1,
+    maxHeight: 120,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderColor: c.border,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    paddingHorizontal: sp.lg,
+    paddingTop: 11,
+    paddingBottom: 11,
+    fontSize: 16,
+    color: c.ink,
   },
   sendBtn: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "#7c3aed",
+    borderRadius: radius.pill,
+    backgroundColor: c.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  sendText: { color: "#fff", fontSize: 18 },
+  sendBtnOff: { opacity: 0.4 },
+  sendText: { color: c.onAccent, fontSize: 22, fontWeight: "800", marginTop: -1 },
 });

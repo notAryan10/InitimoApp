@@ -28,6 +28,7 @@ export default function Login() {
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Welcome back</Text>
+      <Text style={styles.subtitle}>Your characters are waiting.</Text>
       <Field placeholder="Email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
       <Field placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
       {error && <Text style={styles.error}>{error}</Text>}

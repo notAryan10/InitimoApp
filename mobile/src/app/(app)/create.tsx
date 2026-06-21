@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 
 import { Field, SubmitButton, styles as fs } from "@/components/form";
 import { api } from "@/lib/api";
+import { c, radius, sp } from "@/lib/theme";
 
 // Preset starting relationship → seed stats (score = sum, see relationshipLevel.js).
 const CLOSENESS = {
@@ -43,7 +44,7 @@ export default function Create() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ padding: sp.lg, gap: sp.md }}>
       <Field placeholder="Name *" value={name} onChangeText={setName} />
       <Field
         placeholder="Personality / backstory *"
@@ -108,11 +109,18 @@ function Toggle<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  multiline: { height: 100, textAlignVertical: "top" },
-  label: { fontWeight: "600", marginBottom: 6 },
-  toggleRow: { flexDirection: "row", gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1, borderColor: "#ccc" },
-  chipActive: { backgroundColor: "#7c3aed", borderColor: "#7c3aed" },
-  chipText: { color: "#444" },
-  chipTextActive: { color: "#fff", fontWeight: "600" },
+  multiline: { height: 110, paddingTop: 14, textAlignVertical: "top" },
+  label: { fontWeight: "700", marginBottom: sp.sm, color: c.ink, fontSize: 15 },
+  toggleRow: { flexDirection: "row", gap: sp.sm, flexWrap: "wrap" },
+  chip: {
+    paddingVertical: sp.sm,
+    paddingHorizontal: sp.lg,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.surface,
+  },
+  chipActive: { backgroundColor: c.accent, borderColor: c.accent },
+  chipText: { color: c.muted },
+  chipTextActive: { color: c.onAccent, fontWeight: "700" },
 });
