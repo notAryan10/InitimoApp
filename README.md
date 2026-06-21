@@ -11,10 +11,16 @@ mobile/  Expo (expo-router) app
 
 ## Run locally (4 terminals)
 
-1. **llama.cpp** (MythoMax GGUF) on :8080
+1. **llama.cpp** (MythoMax GGUF) on :8080, with speculative decoding for ~1.5–2×
+   speed (TinyLlama 1.1B drafts, MythoMax verifies — output identical):
    ```
-   llama-server -m mythomax-l2-13b.Q6_K.gguf --port 8080 --ctx-size 4096 -ngl 99
+   llama-server \
+     -m mythomax-l2-13b.Q4_K_M.gguf \
+     -md tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf \
+     --spec-draft-n-max 16 --spec-draft-n-min 4 \
+     --port 8080 --ctx-size 4096 -ngl 99 -ngld 99 -fa on
    ```
+   (Without the draft model, drop the `-md`/`--spec-*`/`-ngld` flags.)
 2. **AI** `cd ai && pip install -r requirements.txt && python app.py`  (:8000)
 3. **server** `cd server && cp .env.example .env && npm i && node server.js`  (:5001)
 4. **mobile** `cd mobile && npm i`, set `EXPO_PUBLIC_API_URL` in `.env` to your
