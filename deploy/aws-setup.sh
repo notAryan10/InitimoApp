@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time setup for the Intimo AI box on an AWS EC2 GPU instance.
-# Tested on: Ubuntu 22.04 "Deep Learning Base GPU AMI" (NVIDIA driver + CUDA preinstalled).
-# Run as the default `ubuntu` user:  bash aws-setup.sh
+# Works on Amazon Linux 2023 (ec2-user) and Ubuntu (ubuntu) Deep Learning AMIs
+# that ship the NVIDIA driver + CUDA. Run as the default user:  bash aws-setup.sh
 set -euo pipefail
 
 MODELS=/opt/models
@@ -14,8 +14,12 @@ DRAFT_GGUF="$MODELS/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 AI_API_KEY="${AI_API_KEY:-$(openssl rand -hex 16)}"
 
 echo "==> Installing build deps"
-sudo apt-get update -y
-sudo apt-get install -y build-essential cmake git python3-venv python3-pip curl
+if command -v dnf >/dev/null; then
+  sudo dnf install -y gcc gcc-c++ make cmake git python3 python3-pip openssl curl
+else
+  sudo apt-get update -y
+  sudo apt-get install -y build-essential cmake git python3-venv python3-pip curl openssl
+fi
 
 echo "==> Building llama.cpp with CUDA"
 sudo mkdir -p "$LLAMA" && sudo chown "$USER" "$LLAMA"
