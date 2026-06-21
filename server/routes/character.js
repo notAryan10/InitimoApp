@@ -31,7 +31,7 @@ function assignVoice(personality, gender) {
 
 router.post("/create", authMiddleware, async (req, res) => {
   try {
-    const { name, personality, emotion, description, visibility, voice, gender,
+    const { name, personality, emotion, description, image, visibility, voice, gender,
             startAffection, startTrust, startIntimacy } = req.body;
 
     const speakerId = (voice && voice.speakerId) || assignVoice(personality, gender);
@@ -42,6 +42,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       personality,
       emotion,
       description,
+      image,
       startAffection: startAffection || 0,
       startTrust: startTrust || 0,
       startIntimacy: startIntimacy || 0,
@@ -68,6 +69,30 @@ router.get("/my", authMiddleware, async (req, res) => {
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const character = await Character.findOne({ _id: req.params.id, userId: req.userId });
+    if (!character) return res.status(404).json({ error: "Character not found" });
+    res.json(character);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edit a character you own. Only the owner's doc is matched, so this is the
+// authorization check. Relationship start-stats aren't editable here — the
+// relationship already exists once a chat has begun.
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    const { name, personality, description, image, gender, visibility } = req.body;
+    if (name !== undefined && !name.trim())
+      return res.status(400).json({ message: "Name cannot be empty" });
+
+    const updates = { name, personality, description, image, gender, visibility };
+    Object.keys(updates).forEach((k) => updates[k] === undefined && delete updates[k]);
+
+    const character = await Character.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { $set: updates },
+      { new: true }
+    );
     if (!character) return res.status(404).json({ error: "Character not found" });
     res.json(character);
   } catch (err) {

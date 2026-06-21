@@ -1,10 +1,11 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { Field, SubmitButton, styles as fs } from "@/components/form";
 import { api } from "@/lib/api";
 import { c, radius, sp } from "@/lib/theme";
+import type { Character } from "@/lib/types";
 
 // Preset starting relationship → seed stats (score = sum, see relationshipLevel.js).
 const CLOSENESS = {
@@ -17,24 +18,50 @@ const CLOSENESS = {
 
 export default function Create() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const editing = !!id;
+
   const [name, setName] = useState("");
   const [personality, setPersonality] = useState("");
   const [description, setDescription] = useState("");
+  const [image, setImage] = useState("");
   const [gender, setGender] = useState<"female" | "male">("female");
   const [visibility, setVisibility] = useState<"private" | "public">("private");
   const [closeness, setCloseness] = useState<keyof typeof CLOSENESS>("Stranger");
+  const [loading, setLoading] = useState(editing);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit mode: set the header title and prefill from the existing character.
+  useEffect(() => {
+    navigation.setOptions({ title: editing ? "Edit character" : "New character" });
+    if (!editing) return;
+    api<Character>(`/api/character/${id}`)
+      .then((ch) => {
+        setName(ch.name ?? "");
+        setPersonality(ch.personality ?? "");
+        setDescription(ch.description ?? "");
+        setImage(ch.image ?? "");
+        if (ch.gender) setGender(ch.gender);
+        if (ch.visibility) setVisibility(ch.visibility);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [id, editing, navigation]);
 
   async function save() {
     if (!name.trim() || !personality.trim())
       return setError("Name and personality are required.");
     setBusy(true);
     setError(null);
+    const fields = { name: name.trim(), personality, description, image: image.trim(), gender, visibility };
     try {
-      await api("/api/character/create", {
-        body: { name: name.trim(), personality, description, gender, visibility, ...CLOSENESS[closeness] },
-      });
+      if (editing) {
+        await api(`/api/character/${id}`, { method: "PUT", body: fields });
+      } else {
+        await api("/api/character/create", { body: { ...fields, ...CLOSENESS[closeness] } });
+      }
       router.back();
     } catch (e: any) {
       setError(e.message);
@@ -43,9 +70,23 @@ export default function Create() {
     }
   }
 
+  if (loading)
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={c.accent} />
+      </View>
+    );
+
   return (
     <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={{ padding: sp.lg, gap: sp.md }}>
       <Field placeholder="Name *" value={name} onChangeText={setName} />
+      <Field
+        placeholder="Image URL (optional)"
+        autoCapitalize="none"
+        keyboardType="url"
+        value={image}
+        onChangeText={setImage}
+      />
       <Field
         placeholder="Personality / backstory *"
         multiline
@@ -60,12 +101,14 @@ export default function Create() {
         value={description}
         onChangeText={setDescription}
       />
-      <Toggle
-        label="Starting closeness"
-        options={Object.keys(CLOSENESS) as (keyof typeof CLOSENESS)[]}
-        value={closeness}
-        onChange={setCloseness}
-      />
+      {!editing && (
+        <Toggle
+          label="Starting closeness"
+          options={Object.keys(CLOSENESS) as (keyof typeof CLOSENESS)[]}
+          value={closeness}
+          onChange={setCloseness}
+        />
+      )}
       <Toggle label="Gender" options={["female", "male"]} value={gender} onChange={setGender} />
       <Toggle
         label="Visibility"
@@ -74,7 +117,7 @@ export default function Create() {
         onChange={setVisibility}
       />
       {error && <Text style={fs.error}>{error}</Text>}
-      <SubmitButton label="Create" busy={busy} onPress={save} />
+      <SubmitButton label={editing ? "Save changes" : "Create"} busy={busy} onPress={save} />
     </ScrollView>
   );
 }

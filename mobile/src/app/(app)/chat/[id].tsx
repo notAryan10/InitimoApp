@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useNavigation } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -14,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, streamPost } from "@/lib/api";
@@ -30,9 +32,11 @@ type ChatLoad = {
 export default function Chat() {
   const { id: characterId } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [chatId, setChatId] = useState<string | null>(null);
   const [charName, setCharName] = useState("");
+  const [charImage, setCharImage] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [rel, setRel] = useState<Relationship | null>(null);
   const [level, setLevel] = useState("");
@@ -52,7 +56,7 @@ export default function Chat() {
         });
         const [data, char] = await Promise.all([
           api<ChatLoad>(`/api/chat/${chatId}`),
-          api<{ name: string }>(`/api/character/${characterId}`).catch(() => null),
+          api<{ name: string; image?: string }>(`/api/character/${characterId}`).catch(() => null),
         ]);
         if (cancelled) return;
         setChatId(chatId);
@@ -61,6 +65,7 @@ export default function Chat() {
         setLevel(data.level);
         setEmoji(data.emoji);
         if (char?.name) setCharName(char.name);
+        if (char?.image) setCharImage(char.image);
       } catch {
         // leave empty; user sees an error on send
       } finally {
@@ -78,14 +83,23 @@ export default function Chat() {
     navigation.setOptions({
       headerTitle: () => (
         <View style={styles.headerTitle}>
-          <View style={[styles.headerAvatar, { backgroundColor: avatarTint(characterId) }]}>
-            <Text style={styles.headerAvatarText}>{charName.charAt(0).toUpperCase()}</Text>
-          </View>
+          {charImage ? (
+            <Image source={{ uri: charImage }} style={styles.headerAvatar} contentFit="cover" />
+          ) : (
+            <View style={[styles.headerAvatar, styles.headerAvatarFallback, { backgroundColor: avatarTint(characterId) }]}>
+              <Text style={styles.headerAvatarText}>{charName.charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
           <Text style={styles.headerName}>{charName}</Text>
         </View>
       ),
+      headerRight: () => (
+        <TouchableOpacity onPress={() => router.push(`/(app)/create?id=${characterId}`)} hitSlop={10}>
+          <Ionicons name="create-outline" size={22} color={c.ink} />
+        </TouchableOpacity>
+      ),
     });
-  }, [charName, characterId, navigation]);
+  }, [charName, charImage, characterId, navigation, router]);
 
   async function send() {
     const message = input.trim();
@@ -272,7 +286,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
   headerTitle: { flexDirection: "row", alignItems: "center", gap: sp.sm },
-  headerAvatar: { width: 30, height: 30, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  headerAvatar: { width: 30, height: 30, borderRadius: radius.pill },
+  headerAvatarFallback: { alignItems: "center", justifyContent: "center" },
   headerAvatarText: { color: c.onAccent, fontSize: 14, fontWeight: "800" },
   headerName: { color: c.ink, fontSize: 17, fontWeight: "700" },
   relBar: {

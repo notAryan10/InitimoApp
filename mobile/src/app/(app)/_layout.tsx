@@ -13,7 +13,7 @@ export default function AppLayout() {
         contentStyle: { backgroundColor: c.bg },
       }}
     >
-      <Stack.Screen name="dashboard" options={{ title: "Your characters" }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="create" options={{ title: "New character", presentation: "modal" }} />
       <Stack.Screen name="chat/[id]" options={{ title: "Chat" }} />
     </Stack>

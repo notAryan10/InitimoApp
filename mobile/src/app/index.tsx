@@ -12,5 +12,5 @@ export default function Index() {
         <ActivityIndicator color={c.accent} />
       </View>
     );
-  return <Redirect href={user ? "/(app)/dashboard" : "/(auth)/login"} />;
+  return <Redirect href={user ? "/(app)/(tabs)/characters" : "/(auth)/login"} />;
 }

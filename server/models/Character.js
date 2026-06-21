@@ -7,6 +7,7 @@ const CharacterSchema = new mongoose.Schema({
   emotion: String,
   mood: { type: String, default: "Neutral" },
   description: String,
+  image: String, // optional avatar/cover image URL
   // Seed stats for the user↔character relationship, set from backstory at creation.
   startAffection: { type: Number, default: 0 },
   startTrust: { type: Number, default: 0 },

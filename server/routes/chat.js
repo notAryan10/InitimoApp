@@ -261,6 +261,39 @@ router.post("/message", authMiddleware, async (req, res) => {
   }
 });
 
+// List the user's chats for the History tab, newest first.
+// ponytail: per-chat last-message lookup is N+1, fine for a single user's handful
+// of chats; switch to an aggregate if this ever serves many users.
+router.get("/list", authMiddleware, async (req, res) => {
+  try {
+    const chats = await Chat.find({ userId: req.userId }).sort({ lastSeen: -1 });
+    const characters = await Character.find({
+      _id: { $in: chats.map((ch) => ch.characterId) },
+    });
+    const byId = Object.fromEntries(characters.map((c) => [String(c._id), c]));
+
+    const items = await Promise.all(
+      chats.map(async (ch) => {
+        const last = await Message.findOne({ chatId: ch._id }).sort({ createdAt: -1 });
+        const char = byId[String(ch.characterId)];
+        return {
+          chatId: ch._id,
+          characterId: ch.characterId,
+          name: char?.name || "Unknown",
+          image: char?.image || null,
+          level: ch.relationshipLevel,
+          emoji: ch.relationshipEmoji,
+          lastSeen: ch.lastSeen,
+          preview: last ? last.text.replace(/[*"]/g, "").trim().slice(0, 80) : "",
+        };
+      })
+    );
+    res.json(items.filter((i) => byId[String(i.characterId)])); // skip deleted characters
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/:chatId", authMiddleware, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId);

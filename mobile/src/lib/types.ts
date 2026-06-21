@@ -3,6 +3,7 @@ export type Character = {
   name: string;
   personality?: string;
   description?: string;
+  image?: string;
   emotion?: string;
   gender?: "female" | "male";
   visibility?: "public" | "private";
