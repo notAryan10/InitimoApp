@@ -10,6 +10,10 @@ const chatRoutes = require("./routes/chat");
 
 const app = express();
 
+// Render (and most hosts) sit behind a proxy that sets X-Forwarded-For.
+// Trust the first hop so express-rate-limit sees the real client IP.
+app.set("trust proxy", 1);
+
 app.use(cors());
 app.use(express.json());
 
