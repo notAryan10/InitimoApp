@@ -1,9 +1,21 @@
+import os
 import re
 import json
 import requests
 from flask import Flask, request, jsonify, Response, stream_with_context
 
 app = Flask(__name__)
+
+# Shared secret: when AI_API_KEY is set (in prod), every request must send it.
+# Local dev leaves it unset, so nothing changes.
+API_KEY = os.environ.get("AI_API_KEY")
+
+
+@app.before_request
+def require_api_key():
+    if API_KEY and request.headers.get("X-API-Key") != API_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+
 
 # ponytail: voice/TTS removed — text-only. Re-add XTTS here if voice comes back.
 LLAMA_SERVER_URL = "http://localhost:8080/completion"
@@ -305,4 +317,5 @@ Rules:
     return jsonify({"greeting": reply})
 
 if __name__ == "__main__":
-    app.run(port=8000)
+    # 0.0.0.0 so the EC2 box is reachable; locally it's still fine.
+    app.run(host="0.0.0.0", port=8000)
