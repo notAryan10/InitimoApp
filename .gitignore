@@ -3,3 +3,4 @@ node_modules/
 *.log
 ai/audio/
 .DS_Store
+.venv/

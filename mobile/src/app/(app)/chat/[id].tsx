@@ -113,7 +113,7 @@ export default function Chat() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.sender === "user" ? styles.user : styles.assistant]}>
-            <Text style={item.sender === "user" ? styles.userText : undefined}>{item.text}</Text>
+            <RichText text={item.text} mine={item.sender === "user"} />
           </View>
         )}
         ListFooterComponent={sending ? <Text style={styles.typing}>typing…</Text> : null}
@@ -135,6 +135,24 @@ export default function Chat() {
   );
 }
 
+// Renders *narration* as italic, leaving "dialogue" as normal text.
+function RichText({ text, mine }: { text: string; mine: boolean }) {
+  const parts = text.split(/(\*[^*]+\*)/g).filter(Boolean);
+  return (
+    <Text style={mine ? styles.userText : undefined}>
+      {parts.map((p, i) =>
+        p.startsWith("*") && p.endsWith("*") ? (
+          <Text key={i} style={[styles.narration, mine && styles.userText]}>
+            {p.slice(1, -1)}
+          </Text>
+        ) : (
+          <Text key={i}>{p}</Text>
+        )
+      )}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
   relBar: {
     flexDirection: "row",
@@ -149,6 +167,7 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: "80%", padding: 12, borderRadius: 14 },
   user: { alignSelf: "flex-end", backgroundColor: "#7c3aed" },
   userText: { color: "#fff" },
+  narration: { fontStyle: "italic", color: "#666" },
   assistant: { alignSelf: "flex-start", backgroundColor: "#eee" },
   typing: { padding: 8, color: "#888", fontStyle: "italic" },
   inputRow: {

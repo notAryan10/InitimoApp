@@ -26,15 +26,28 @@ def call_llama(prompt: str, stop: list[str] = ["<|im_end|>", "User:", "You:", "\
 
 def clean_reply(text: str, character_name: str) -> str:
     text = re.sub(rf"^{character_name}:\s*", "", text, flags=re.IGNORECASE)
-    parts = re.split(r"\n(User|AI|Assistant|System):", text, flags=re.IGNORECASE)
-    cleaned = str(parts[0])
+    # Stop at any point the model starts a new turn / second speaker.
+    cleaned = re.split(r"\n(User|AI|Assistant|System):", text, flags=re.IGNORECASE)[0]
     cleaned = cleaned.replace("<|im_end|>", "").replace("<|im_start|>", "")
-    cleaned = re.sub(r'([^\s*"])\s*(")', r'\1\n\n\2', cleaned)
-    cleaned = re.sub(r'(")\s*([^\s*"])', r'\1\n\n\2', cleaned)
-    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
-    last_dot = cleaned.rfind(".")
-    if last_dot != -1 and '"' not in cleaned[last_dot:]:
-        cleaned = cleaned[:last_dot + 1]
+
+    # ponytail: MythoMax ignores the ChatML stop and narrates both sides.
+    # A real reply is narration + the character's OWN dialogue. The runaway
+    # only starts when a SECOND speaker talks, so cut at the 2nd quoted line
+    # (3rd quote mark) — this keeps narration before AND after the one line.
+    quotes = [i for i, ch in enumerate(cleaned) if ch in '"“”']
+    if len(quotes) >= 3:
+        cleaned = cleaned[: quotes[2]]
+        # drop a dangling attribution fragment left before the cut quote
+        tail = max(cleaned.rfind("."), cleaned.rfind("*"), cleaned.rfind('"'), cleaned.rfind("”"))
+        if tail != -1:
+            cleaned = cleaned[: tail + 1]
+    else:
+        # No second speaker — just trim to the last complete sentence/quote.
+        tail = max(cleaned.rfind("."), cleaned.rfind('"'), cleaned.rfind("”"), cleaned.rfind("*"))
+        if tail != -1:
+            cleaned = cleaned[: tail + 1]
+
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
 
 @app.route("/generate", methods=["POST"])
