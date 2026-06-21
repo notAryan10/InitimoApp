@@ -12,13 +12,8 @@ import {
 
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { c, radius, sp } from "@/lib/theme";
+import { avatarTint, c, radius, sp } from "@/lib/theme";
 import type { Character } from "@/lib/types";
-
-// Deterministic warm avatar tint per character, so each one reads as distinct.
-const AVATAR_TINTS = ["#E2647F", "#C77DA8", "#8E7BC9", "#5E86C9", "#D98859", "#5FA98C"];
-const tintFor = (id: string) =>
-  AVATAR_TINTS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % AVATAR_TINTS.length];
 
 export default function Dashboard() {
   const { logout } = useAuth();
@@ -69,7 +64,7 @@ export default function Dashboard() {
             activeOpacity={0.7}
             onPress={() => router.push(`/(app)/chat/${item._id}`)}
           >
-            <View style={[styles.avatar, { backgroundColor: tintFor(item._id) }]}>
+            <View style={[styles.avatar, { backgroundColor: avatarTint(item._id) }]}>
               <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.cardBody}>

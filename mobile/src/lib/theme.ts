@@ -17,6 +17,11 @@ export const c = {
 
 export const radius = { sm: 12, md: 18, lg: 24, pill: 999 };
 
+// Deterministic warm avatar tint per character id, so each reads as distinct.
+const AVATAR_TINTS = ["#E2647F", "#C77DA8", "#8E7BC9", "#5E86C9", "#D98859", "#5FA98C"];
+export const avatarTint = (id: string) =>
+  AVATAR_TINTS[[...id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % AVATAR_TINTS.length];
+
 // 4pt spacing scale.
 export const sp = {
   xs: 4,

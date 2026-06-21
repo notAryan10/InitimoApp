@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -14,9 +14,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api, streamPost } from "@/lib/api";
-import { c, radius, sp } from "@/lib/theme";
+import { avatarTint, c, radius, sp } from "@/lib/theme";
 import type { Message, Relationship } from "@/lib/types";
 
 type ChatLoad = {
@@ -28,7 +29,10 @@ type ChatLoad = {
 
 export default function Chat() {
   const { id: characterId } = useLocalSearchParams<{ id: string }>();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [chatId, setChatId] = useState<string | null>(null);
+  const [charName, setCharName] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [rel, setRel] = useState<Relationship | null>(null);
   const [level, setLevel] = useState("");
@@ -46,13 +50,17 @@ export default function Chat() {
         const { chatId } = await api<{ chatId: string }>("/api/chat/create", {
           body: { characterId },
         });
-        const data = await api<ChatLoad>(`/api/chat/${chatId}`);
+        const [data, char] = await Promise.all([
+          api<ChatLoad>(`/api/chat/${chatId}`),
+          api<{ name: string }>(`/api/character/${characterId}`).catch(() => null),
+        ]);
         if (cancelled) return;
         setChatId(chatId);
         setMessages(data.messages ?? []);
         setRel(data.relationship);
         setLevel(data.level);
         setEmoji(data.emoji);
+        if (char?.name) setCharName(char.name);
       } catch {
         // leave empty; user sees an error on send
       } finally {
@@ -63,6 +71,21 @@ export default function Chat() {
       cancelled = true;
     };
   }, [characterId]);
+
+  // Show who you're talking to in the header, matching the dashboard avatar.
+  useEffect(() => {
+    if (!charName) return;
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={styles.headerTitle}>
+          <View style={[styles.headerAvatar, { backgroundColor: avatarTint(characterId) }]}>
+            <Text style={styles.headerAvatarText}>{charName.charAt(0).toUpperCase()}</Text>
+          </View>
+          <Text style={styles.headerName}>{charName}</Text>
+        </View>
+      ),
+    });
+  }, [charName, characterId, navigation]);
 
   async function send() {
     const message = input.trim();
@@ -146,7 +169,7 @@ export default function Chat() {
           );
         }}
       />
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, sp.md) }]}>
         <TextInput
           style={styles.input}
           placeholder="Message…"
@@ -248,6 +271,10 @@ function RichText({ text, mine }: { text: string; mine: boolean }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: c.bg },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: c.bg },
+  headerTitle: { flexDirection: "row", alignItems: "center", gap: sp.sm },
+  headerAvatar: { width: 30, height: 30, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  headerAvatarText: { color: c.onAccent, fontSize: 14, fontWeight: "800" },
+  headerName: { color: c.ink, fontSize: 17, fontWeight: "700" },
   relBar: {
     flexDirection: "row",
     gap: sp.md,
