@@ -1,8 +1,9 @@
 const axios = require("axios");
+const { AI_URL } = require("../config");
 
 async function analyzeMessage(message) {
   try {
-    const response = await axios.post("http://127.0.0.1:8000/analyze", {
+    const response = await axios.post(`${AI_URL}/analyze`, {
       message: message,
     });
 

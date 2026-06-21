@@ -1,9 +1,10 @@
 const axios = require("axios");
 const Memory = require("../models/Memory");
+const { AI_URL } = require("../config");
 
 async function extractAndStoreMemory(userId, characterId, message) {
   try {
-    const response = await axios.post("http://127.0.0.1:8000/extract-memory", {
+    const response = await axios.post(`${AI_URL}/extract-memory`, {
       message: message,
     });
 

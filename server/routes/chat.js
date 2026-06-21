@@ -15,10 +15,11 @@ const { updateEmotion } = require("../services/emotionEngine");
 const { getRelationshipLevel } = require("../services/relationshipLevel");
 const axios = require("axios");
 const Memory = require("../models/Memory");
+const { AI_URL } = require("../config");
 
 async function generateInitialMessage(character) {
   try {
-    const response = await axios.post("http://127.0.0.1:8000/generate-intro-scene", {
+    const response = await axios.post(`${AI_URL}/generate-intro-scene`, {
       character_name: character.name,
       personality: character.personality,
       emotion: character.emotion,
@@ -35,7 +36,7 @@ async function generateInitialMessage(character) {
 async function generateReturnGreeting(character, relationship, memoryText, hoursAway) {
   try {
     const levelInfo = relationship ? getRelationshipLevel(relationship) : { level: "Stranger" };
-    const response = await axios.post("http://127.0.0.1:8000/generate-return-greeting", {
+    const response = await axios.post(`${AI_URL}/generate-return-greeting`, {
       character_name: character.name,
       personality: character.personality,
       emotion: character.emotion,
@@ -233,7 +234,7 @@ router.post("/message", authMiddleware, async (req, res) => {
   let full = "";
   try {
     const aiResp = await axios.post(
-      "http://127.0.0.1:8000/generate-stream",
+      `${AI_URL}/generate-stream`,
       { prompt, character_name: character.name },
       { responseType: "stream" }
     );
