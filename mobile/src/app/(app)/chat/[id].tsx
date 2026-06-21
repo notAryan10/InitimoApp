@@ -184,8 +184,8 @@ export default function Chat() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
+      behavior="padding"
+      keyboardVerticalOffset={insets.top + (Platform.OS === "ios" ? 44 : 56)}
     >
       {rel && (
         <View style={styles.relBar}>
