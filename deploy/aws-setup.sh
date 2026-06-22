@@ -15,7 +15,8 @@ AI_API_KEY="${AI_API_KEY:-$(openssl rand -hex 16)}"
 
 echo "==> Installing build deps"
 if command -v dnf >/dev/null; then
-  sudo dnf install -y gcc gcc-c++ make cmake git python3 python3-pip openssl curl
+  # curl is already present as curl-minimal on AL2023; installing full curl conflicts.
+  sudo dnf install -y gcc gcc-c++ make cmake git python3 python3-pip openssl
 else
   sudo apt-get update -y
   sudo apt-get install -y build-essential cmake git python3-venv python3-pip curl openssl
